@@ -1,0 +1,345 @@
+---
+title: "Prediction Challenge - Cox-Time"
+subtitle: "Seminar: Time-to-event Machine Learning"
+author: |
+  | Simon Wiegrebe
+date: "February 26, 2021"
+output:
+  beamer_presentation:
+    theme: "Warsaw"
+    colortheme: "dolphin"
+    fonttheme: "structurebold"
+bibliography: bibliography_part2.bib
+biblio-style: myabbrvnat
+header-includes:
+  - \usepackage{caption}
+  - \usepackage{float}
+  - \captionsetup{labelformat=empty}
+  - \usepackage{multirow}
+  - \usepackage{graphicx}
+  - \usepackage{booktabs}
+  - \usepackage{bbm}
+  - \usepackage{amsmath}
+  # - \usepackage{breqn}
+  # - \usepackage{titling}
+  # - \pretitle{\begin{center}
+  #   \includegraphics[width=2in,height=2in]{logo.pdf}\LARGE\\}
+  # - \posttitle{\end{center}}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+# loading required libraries
+library(dplyr)
+library(mlr3)
+library(mlr3extralearners)
+library(mlr3learners)
+library(mlr3learners.pycox)
+library(mlr3pipelines)
+library(mlr3proba)
+library(mlr3tuning)
+library(mlr3viz)
+library(paradox)
+library(purrr)
+library(reticulate)
+library(survivalmodels)
+library(tidyr)
+```
+
+```{r, include=FALSE}
+# load data
+train <- readRDS("../prediction_challenge/train_data.Rds")
+test <- readRDS("../prediction_challenge/test_list_x.Rds")
+```
+
+```{r tasks_definition, include=FALSE}
+tsks_train = imap(
+  train,
+  ~TaskSurv$new(id = .y, backend = .x, time = "time", event = "status"))
+```
+
+# \textcolor{white}{Prediction Challenge - Outline}
+
+- Learner
+- Hyperparameter Optimization (Tuning)
+- Application And Performance Evaluation
+- Conclusion And Next Steps
+
+# \textcolor{white}{Learner - Original And Modified Implementation}
+
+- My model: Cox-Time [@kvamme2019time]
+- Originally implemented in the Python package **`pycox`** (based on the **`PyTorch`** machine learning library)
+- **`mlr3`** implementation of the Cox-Time model: **`surv.coxtime`** (from the **`mlr3extralearners`** package)
+- Major shortcoming of **`surv.coxtime`**: network size (**`num_nodes`**) not tunable $\rightarrow$ **`surv.coxtime2`**^[\tiny `devtools::install_github(https://github.com/SimonWiegrebe/mlr3learners.pycox)`.]
+
+```{r learner_instantiation, echo=TRUE}
+lrn_coxtime_raw <- lrn("surv.coxtime2")
+```
+
+# \textcolor{white}{Learner - Piping}
+
+- Use the **`mlr3pipelines`** package to build a pipeline to
+  - encode factor variables as binary dummies
+  - handle missing values
+  - standardize numeric inputs (optional)
+
+```{r piping}
+imputer = po("imputesample")
+standardizer = po("scale")
+factor_encoder = po("encode", method = "treatment",
+  affect_columns = selector_type("factor"))
+pipe = imputer %>>% standardizer %>>%
+        factor_encoder %>>% lrn_coxtime_raw
+```
+
+- Wrap pipeline in a **`GraphLearner`** object to make it behave like a regular learner:
+
+```{r}
+lrn_coxtime = GraphLearner$new(pipe)
+```
+
+# \textcolor{white}{Tuning}
+
+```{r tuner, include=FALSE}
+tuner <- mlr3tuning::tnr("random_search")
+```
+
+- Why tuning? To find the hyperparameter configuration which optimizes model performance
+- Hyperparameter optimization requires the specification of four components [@mlr3book]:
+
+  1) Search space
+  2) Optimization algorithm (tuner)
+  3) Evaluation method (resampling strategy)
+  4) Performance measure
+
+# \textcolor{white}{Tuning - Search Space}
+
+- Large number of hyperparameters (here: 42)
+- Only consider "most relevant" hyperparameters for tuning^[\tiny Based on Table A.1 of the appendix of @kvamme2019time.]:
+  - number of layers and nodes per layer
+  - learning rate
+  - weight decay
+  - dropout probability
+  - batch size and number of epochs
+  - ...
+- Optimizer: Averaged Stochastic Gradient Descent (**`asgd`**)
+- Due to resource constraints: **`num_layers`** fixed for each dataset (no tuning)
+- Use the **`paradox`** package
+
+# \textcolor{white}{Tuning - Optimization Algorithm}
+
+- Use the **`mlr3tuning`** package
+- Currently implemented tuners:
+  - Grid search
+  - **Random search**
+  - Generalized simulated annealing
+  - Non-linear optimization
+- Possible (advanced) alternatives:
+  - Hyperband (implemented in **`mlr3`**)
+  - Iterated F-racing
+  - mlrMBO
+
+# \textcolor{white}{Tuning - Evaluation Method (I)}
+
+```{r resampling, include=FALSE}
+resampling_inner <- rsmp("cv", folds = 5L)
+resampling_outer <- rsmp("cv", folds = 5L)
+```
+
+Goals:
+
+- Finding the optimal hyperparameter configuration
+- Obtaining unbiased performance estimates
+
+First of all: split data into training, validation, and test data
+
+- Train different models (i.e., different, randomly selected hyperparameter configurations) on training data
+- Choose the model (i.e., the hyperparameter configuration) which performs best on the validation data
+  - By definition, tuning entails overfitting on the validation data
+- Train the model with the best hyperparameter configuration on the training and validation data combined
+- Evaluate the performance of this model on the test data
+
+External (black box) test data: to make sure we do not go astray
+
+# \textcolor{white}{Tuning - Evaluation Method (II)}
+
+How to combine this procedure with cross validation (CV)? $\rightarrow$ **Nested resampling**
+
+- Inner resampling loop: 5-fold CV
+  - Advantage vis-à-vis simple holdout: optimal hyperparameters do not depend on the specific validation data sampled
+- Outer resampling loop: 5-fold CV
+  - Each outer fold comes with its own "optimal" hyperparameter configuration
+  - So in our case: 5 optimal hyperparameter configurations
+
+# \textcolor{white}{Tuning - Evaluation Method (III)}
+
+![\tiny Source: mlr3book](nested_resampling.png){#id .class width=100% height=75%}
+
+# \textcolor{white}{Tuning - Performance Measure}
+
+```{r evaluation_times, include=FALSE}
+eval_times = map(
+  tsks_train,
+  ~{time = .x$data()$time[.x$data()$status == 1]
+    quantile(time, prob=.5)})
+```
+
+```{r tuning_measures, include=FALSE}
+measures = map(
+  eval_times,
+  ~{msr("surv.graf", times = .x)})
+```
+
+- Integrated Brier Score (IBS, also called Integrated Graf Score) used for hyperparameter optimization (as well as for performance evaluation)
+- Evaluation at the 50% quantile of event times
+
+# \textcolor{white}{Tuning - Terminator}
+
+```{r tuning_terminator, include=FALSE}
+terminator <- trm("stagnation", iters = 10, threshold = 0)
+```
+
+- Termination criterion for tuning
+- Use the **`bbotk`** package
+- If comparing multiple learners: **`TerminatorEval`**
+- Here: only one learner $\rightarrow$ **`TerminatorStagnation`**
+
+# \textcolor{white}{Tuning - AutoTuner}
+
+- How to implement nested resampling, given the search space, tuner, resampling strategy, and terminator specified above?
+- Use the **`AutoTuner`** class from the **`mlr3tuning`** package
+- No manual looping required
+- 3-step procedure:
+
+1) Create a wrapped learner via **`mlr3tuning::AutoTuner`**.
+2) Specify all tuning settings as arguments of the **`AutoTuner`**.
+3) Use resampling or benchmarking to execute the (autotuned) learner.
+
+- Wrapped learner is dataset-specific because of
+  - (evaluation) measure and
+  - (hyperparameter) search space
+- Execute the autotuned learner by calling either **`resample()`** or **`benchmark()`**
+  - Initially: only one learner $\rightarrow$ **`resample()`**
+  - Later on: benchmark performance against baseline Kaplan-Meier learner $\rightarrow$ **`benchmark()`**
+
+# \textcolor{white}{Tuning - Trimming And Re-Tuning}
+
+- Recall: huge hyperparameter space
+- First tuning round: use broad search ranges $\rightarrow$ explore
+- Based on the (five) optimal hyperparameter values:
+  - Fix **`dropout`**, **`learning_rate`**, and **`weight_decay`** at average optimal value
+  - Fix **`batch_size`** and **`epochs`** if fluctuation is low AND optimal values not close to/at search range boundary
+    - otherwise: include in second tuning round and, if necessary, shift search range
+  - Adjust search range of **`nodes_per_layer`** if necessary (optimal values close to/at search range boundary)
+- Second tuning round: use trimmed search space to focus on **`nodes_per_layer`** in particular
+- Based on the optimal hyperparameter values:
+  - Fix remaining hyperparameters at average optimal values
+
+# \textcolor{white}{Dataset d1 - Overview}
+
+```{r, include=FALSE}
+# select dataset
+nr <- "d1"
+dataset <- get(nr, train)
+# extract task from list
+task <- get(nr, tsks_train)
+# set up measure
+measure <- get(nr, measures)
+# create new learner
+lrn_coxtime = GraphLearner$new(pipe)
+```
+
+- `r dim(train$d1)[1]` observations with `r dim(train$d1)[2]-2` features each
+- Feature V1 is simply an ID variable
+- Features V5 and V15 only take on values in {0, 0.5, 1} and {1, 2, 3, 4}, respectively
+- Define task and performance measure (given event times) 
+- No further dataset-specific data preprocessing needed
+
+# \textcolor{white}{Dataset d1 - Search Space}
+
+- Fix **`num_layers`** at 2 (i.e., two hidden layers)
+- Nodes per layer in [16,64]
+- Batch sizes in [16,64]
+- Number of epochs in [60,200]
+- Dropout rate in [0,1], weight decay in [0,0.1], learning rate in [0.01,0.05]
+  - Low variability
+  - Same search ranges used for all datasets
+  - Fixed at average optimal value after first tuning round
+
+# \textcolor{white}{Dataset d1 - Tuning }
+
+First tuning round:
+
+- Aggregate performance: 0.1041565 (seed: 123)
+- Fix dropout, learning rate, and weight decay at 0.3, 0.03, and 0.05, respectively
+- Batch size and number of epochs also fixed at average optimal values, 34 and 154, respectively
+- Considerable fluctuation of hidden layer size was fluctuating considerably $\rightarrow$ tune again with same range
+
+Second tuning round:
+
+- Aggregate performance: 0.09573763
+- Less fluctuation in hidden layer size $\rightarrow$ fix at average value 48 
+
+# \textcolor{white}{Dataset d1 - Benchmark}
+
+```{r, include=FALSE}
+# load tuned Cox-Time learner
+learner_name <- paste0("../prediction_challenge/lrn_coxtime_", nr, ".rds")
+lrn_coxtime = readRDS(learner_name)
+# load and pipe Kaplan-Meier learner
+pipe_kaplan = imputer %>>% standardizer %>>% factor_encoder %>>% lrn("surv.kaplan")
+lrn_kaplan = GraphLearner$new(pipe_kaplan)
+```
+
+```{r, include=FALSE}
+learners = list(lrn_coxtime, lrn_kaplan)
+resampling_benchmark = rsmp("cv", folds = 5)
+
+set.seed(123)
+design = benchmark_grid(tasks = task, learners = learners, resamplings = resampling_benchmark)
+
+# bmr = benchmark(design)
+# bmr$aggregate(measure)
+```
+
+- Benchmark Cox-Time learner against baseline Kaplan-Meier learner
+- Internal: 5-fold CV on entire (training) dataset
+  - Cox-Time aggregate performance: 0.095
+  - Kaplan-Meier aggregate performance: 0.164
+  - Huge improvement in performance against a weak baseline learner
+- External: simple holdout test set (10% of all observations)
+  - Cox-Time aggregate performance: 0.091
+  - Kaplan-Meier aggregate performance: 0.155
+- Internal and external performances comparable
+- Model seems to be learning from features!
+
+# \textcolor{white}{Other Datasets - External Performance}
+
+\begin{center}
+\captionof{table}{External Performance On All Datasets}
+\begin{tabular}{|l|l|l|}
+\hline
+Dataset & Kaplan-Meier & Cox-Time \\ \hline
+d1 & 0.155 &  0.091 \\ \hline
+d2 & 0.174 &  0.154 \\ \hline
+d3 & 0.193 &  0.161 \\ \hline
+d4 & 0.221 &  0.197 \\ \hline
+d5 & 0.188 &  0.168 \\ \hline
+d7 & 0.102 &  0.063 \\ \hline
+d8 & 0.234 &  0.234 \\ \hline
+d9 & 0.251 &  0.249 \\ \hline
+\end{tabular}
+\end{center}
+
+# \textcolor{white}{Conclusion And Beyond}
+
+- Cox-Time learner
+- 2-stage tuning approach
+- Good overall performance compared to Kaplan-Meier learner
+- Not (clearly) beating baseline learner on datasets d8 and d9
+- Questions / suggestions?
+
+# References {.allowframebreaks}

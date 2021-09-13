@@ -1,0 +1,45 @@
+---
+title: "What next? Modeling human behavior using smartphoneusage data and (deep) recommender systems"
+# subtitle: "Seminar: Time-to-event Machine Learning"
+author: |
+  | Simon Wiegrebe
+date: "October 08, 2021"
+output:
+  beamer_presentation:
+    theme: "Warsaw"
+    colortheme: "dolphin"
+    fonttheme: "structurebold"
+bibliography: bibliography_part2.bib
+biblio-style: myabbrvnat
+header-includes:
+  - \usepackage{caption}
+  - \usepackage{float}
+  - \captionsetup{labelformat=empty}
+  - \usepackage{multirow}
+  - \usepackage{graphicx}
+  - \usepackage{booktabs}
+  - \usepackage{bbm}
+  - \usepackage{amsmath}
+  # - \usepackage{breqn}
+  # - \usepackage{titling}
+  # - \pretitle{\begin{center}
+  #   \includegraphics[width=2in,height=2in]{logo.pdf}\LARGE\\}
+  # - \posttitle{\end{center}}
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Outline
+
+# Introduction
+
+# Theoretical Framework
+
+# Data
+
+# Methodology
+
+# Results
