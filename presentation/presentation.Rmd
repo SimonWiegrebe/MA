@@ -9,7 +9,7 @@ output:
     theme: "Warsaw"
     colortheme: "dolphin"
     fonttheme: "structurebold"
-bibliography: bibliography_part2.bib
+bibliography: bibliography.bib
 biblio-style: myabbrvnat
 header-includes:
   - \usepackage{caption}
@@ -38,8 +38,56 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Theoretical Framework
 
+- early works (big 5)
+- uncouple from psych context: app2vec
+  - app analogies not very intuitive (example)
+  - how to evaluate performance?
+- uncouple from psych context, focus exclusively on sequential nature of data
+  - time-ordered sequences, imposing session structure
+  - similarity to data from movie ratings, e-commerce sessions, social networking sites:
+    - several users
+    - 1+ sessions per user
+    - 1+ events per session
+  - use RS models
+    - target variable follows a multinomial distribution with a large number of distinct outcomes
+    - task is to create a recommendation list
+- intrinsic similarity to language data
+- session-based and session-aware RS  
+
 # Data
+
+- description (+ table)
+- representation  and preprocessing: app-level 
+- representation  and preprocessing: sequence-level
+- representation  and preprocessing: app-to-text conversion
 
 # Methodology
 
+- modeling
+  - session-based baseline models
+  - session-based neural models
+  - session-aware neural models
+  - extensions
+- evaluation
+  - train-validation-test split
+  - evaluation protocol
+  - evaluation metrics
+  - tuning
+
 # Results
+
+- app-level
+  - overall performance   
+  - minimum sequence length
+  - position in test sequence
+  - removing on and off
+  - category-level prediction
+  - embedding analysis
+- sequence-level
+  - overall performance
+  - removing on and off 
+  - position in test sequence
+
+
+
+- sequence-level
