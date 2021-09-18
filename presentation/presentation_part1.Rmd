@@ -1,0 +1,378 @@
+---
+title: "Deep Survival Analysis"
+subtitle: "Seminar: Time-to-event Machine Learning"
+author: |
+  | Simon Wiegrebe
+date: "December 11, 2020"
+output:
+  beamer_presentation:
+    theme: "Warsaw"
+    colortheme: "dolphin"
+    fonttheme: "structurebold"
+bibliography: bibliography.bib
+biblio-style: myabbrvnat
+header-includes:
+  - \usepackage{caption}
+  - \usepackage{float}
+  - \captionsetup{labelformat=empty}
+  - \usepackage{multirow}
+  - \usepackage{graphicx}
+  - \usepackage{booktabs}
+  - \usepackage{bbm}
+  - \usepackage{amsmath}
+  # - \usepackage{breqn}
+  # - \usepackage{titling}
+  # - \pretitle{\begin{center}
+  #   \includegraphics[width=2in,height=2in]{logo.pdf}\LARGE\\}
+  # - \posttitle{\end{center}}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# \textcolor{white}{Outline}
+
+- Survival and deep learning - why and how?
+
+\hspace{-0.5cm} ![\tiny Credits: Marjory Castellanos](love.pdf){#id .class width=90% height=70%}
+
+- Overview of deep survival model categories 
+  - Cox-based deep survival models
+  - Discrete-time deep survival models
+  - Piecewise exponential deep survival models
+  - Deep and wide survival models
+
+# \textcolor{white}{Survival Analysis: Overview}
+
+- What is survival analysis about? $\rightarrow$ event time modeling \& prediction
+- Where can we apply it? $\rightarrow$ medical settings, predictive maintenance, customer churn, ...
+- What is a typical survival data setting? $\rightarrow$ tuple ($t_i$, $\delta_i$, $\mathbf{x}_i$)
+- Historically: mostly focus on Cox model and extensions
+- More recently: Machine Learning (ML) for survival
+  - Tree-based methods: e.g. @ishwaran2008random
+  - Boosting: e.g. @lee2017boosted
+- Even more recently: Deep Learning (DL) for survival
+
+# \textcolor{white}{Why DL for Survival?}
+
+- Consider Cox Proportional Hazards (PH) regression [@cox1972regression]:
+\begin{align*}
+h(t|\mathbf{x}) &= h_0(t)\text{exp}(g(\mathbf{x}))
+\label{eq:cox_ph}
+\end{align*}
+- $h_0(t)$: baseline hazard, estimated non-parametrically
+- $\text{exp}(g(\mathbf{x}))$: relative risk
+- $g(\mathbf{x})=\mathbf{x}^T\boldsymbol{\beta}$: predictor
+- Time-constant predictor $\rightarrow$  relative risk increases or decreases the hazard rate \textit{proportionally}
+- Linearity of predictor $\rightarrow$ great restriction of modeling flexibility!
+  - Non-linear feature effects cannot be modeled
+  - Interactions must be included manually
+    - Domain knowledge
+    - Feature selection
+- (Deep) neural networks inherently handle non-linearity!
+
+# \textcolor{white}{How to do DL for Survival?}
+
+- Learning = Hypothesis Space + Risk (or Loss) + Optimization
+- Hypothesis space: dictated by the type of neural network
+- Optimization: usually gradient-based (GD, SGD, Adam)
+- Only thing left: loss function $\rightarrow$ use survival loss!
+
+# \textcolor{white}{Cox-based Deep Survival Models: DeepSurv}
+## \textcolor{white}{Hypothesis Space}
+
+- DeepSurv: Cox-based model by @katzman2018deepsurv with PH assumption and deep feed-forward NN predictor
+- Hypothesis space:
+\begin{align*}
+& \mathcal{H} = \{ g: \mathbb{R}^p \rightarrow \mathbb{R} \ |\, g(\mathbf{x}) = \\
+& \tau \circ \phi \circ \sigma^{(l)} \circ \phi^{(l)} \, \circ 
+\sigma^{(l-1)} \circ \phi^{(l-1)} \circ \dots \circ \sigma^{(1)} \circ \phi^{(1)}
+\}
+\end{align*}
+  - \textit{l}: number of hidden layers
+  - $\sigma^{(i)}$ and $\phi^{(i)}$: activation and weighted sum of hidden layer $\textit{i}$
+  - $\tau$ and $\phi$: activation and weighted sum of the output layer
+- Linear output activation: $\tau = \text{id}(\cdot)$
+- \textit{l} and $\sigma^{(i)}$: hyperparameters
+
+# \textcolor{white}{Cox-based Deep Survival Models: DeepSurv}
+## \textcolor{white}{Loss Function And Optimization}
+
+- What loss function to use?
+- DeepSurv: simply a Cox PH regression model with (deep) NN predictor
+  - DeepSurv loss = Cox loss, i.e., negative partial log-likelihood of Cox PH regression model:
+\begin{align*}
+& \text{loss} = \frac{1}{\sum_i \delta_i} \sum_{i:\delta_i=1}\, \text{log}\,
+\left( \left[ \sum_{j \in \mathcal{R}_i} \text{exp}(g(\mathbf{x}_j))
+\right] - \text{exp}(g(\mathbf{x}_i))
+\right) \\
+&+ \lambda \cdot ||\theta||_2^2
+\end{align*}
+  - $\mathcal{R}_i$: risk set at time $t_i$
+  - $\lambda \cdot ||\theta||_2^2$: penalty term
+- Adam and SGD optimization for risk minimization
+
+# \textcolor{white}{Cox-based Deep Survival Models: Cox-Time}
+## \textcolor{white}{Hypothesis Space}
+
+- Cox-Time: Cox-based model by @kvamme2019time with a deep NN predictor
+- $\mathcal{H}$ of Cox-Time as for DeepSurv
+- Relative risk time-dependent $\rightarrow$ no PH assumption:
+\begin{align*}
+h(t|\mathbf{x}) &= h_0(t)\text{exp}(g(t, \mathbf{x}))
+\end{align*}
+- In practice, time is simply included into the feature space of $g(\cdot)$ as a regular feature
+
+# \textcolor{white}{Cox-based Deep Survival Models: Cox-Time}
+## \textcolor{white}{Loss Function And Optimization}
+
+- Batching not easily possible for Cox-based models: the loss contribution of each $i$ depends on on all observations in the risk set $\mathcal{R}_i$
+- Cox-Time: using a (sufficiently large) risk subset $\tilde{\mathcal{R}}_i$:
+\begin{align*}
+& \text{loss} =
+\frac{1}{n} \sum_{i:\delta_i=1}\, \text{log}\,
+\left( \left[ \sum_{j \in \tilde{\mathcal{R}}_i} \text{exp}(g(t_i, \mathbf{x}_j))
+\right] - \text{exp}(g(t_i, \mathbf{x}_i))
+\right) \\
+&+ \lambda \sum_{i:\delta_i=1} \sum_{j \in \tilde{\mathcal{R}}_i} \, |g(t_i, \mathbf{x}_j)|
+\end{align*}
+- Scalability to large datasets
+- Mini-batch SGD for risk minimization
+  - Batch size: hyperparameter to be tuned
+
+# \textcolor{white}{Cox-based Deep Survival Models: Summary}
+## \textcolor{white}{Model Capabilities, Limitations, and Extensions (I)}
+
+- Capable of modeling non-linear effects as well as interactions
+- Deepsurv: assumes PH $\rightarrow$ no TVEs possible
+- Cox-Time: relative risk is time-dependent $\rightarrow$ TVEs possible
+- No inherent way of handling missing data $\rightarrow$ preprocessing
+- Left- or interval-censoring nor truncation not addressed
+  - Maximum likelihood (ML) based methods for Cox PH regression model [@pan2002estimation]
+  - Transferable to Cox-based deep survival models?
+
+# \textcolor{white}{Cox-based Deep Survival Models: Summary}
+## \textcolor{white}{Model Capabilities, Limitations, and Extensions (II)}
+
+- Competing risk and multistate modeling not addressed
+  - Simple solution: modeling a single cause at a time, treating all other causes as censoring [@beyersmann2011competing]
+  - Area of great academic interest [@lunn1995applying; @fine1999proportional; @putter2007tutorial]
+  - Again: check transferability!
+
+# \textcolor{white}{Discrete-time Deep Survival Models: Nnet-survival}
+## \textcolor{white}{Overview}
+
+- Discrete-time techniques require
+  - either discretization into intervals
+  - or a discrete time scale (assumed here for simplicity)
+- Likelihood can be written in terms of densities or hazards:
+  - Parameterize the probability mass function (PMF) by a NN: DeepHit [@lee2018deephit]
+  - Parameterize the discrete hazards by a NN: **Nnet-survival** [@gensheimer2019scalable]
+  
+Nnet-survival
+
+- uses a sigmoid output activation
+  - Discrete hazards: conditional probability of death
+- is flexible in terms of NN architecture
+- does not assume PH
+
+# \textcolor{white}{Discrete-time Deep Survival Models: Nnet-survival}
+## \textcolor{white}{Likelihood And Loss Function}
+
+- Likelihood contribution of individual $i$ with event time $t_{j_i}$:
+\begin{align*}
+L_i &=
+h_{j_i}^{\delta_i} (1-h_{j_i})^{1-\delta_i} \prod_{k=1}^{j_i-1}(1-h_k)
+\end{align*}
+  - If censored ($\delta_i=0$): likelihood contribution is survival probability \textit{up to and including} time point $t_{j_i}$
+  - Otherwise ($\delta_i=1$): likelihood contribution is survival probability until time point $t_{j_i-1}$ times hazard at time $t_{j_i}$
+- Loss: average over negative log-likelihood contributions
+\vspace{-0.5cm}
+
+\begin{align*}
+\text{loss} &= - \frac{1}{n} \sum_{i=1}^n
+\left(
+\delta_i \text{log}(h_{j_i}) +
+(1-\delta_i) \text{log}(1-h_{j_i}) +
+\sum_{k=1}^{j_i-1} \text{log}(1-h_k)
+\right)
+\end{align*}
+
+# \textcolor{white}{Discrete-time Deep Survival Models: Nnet-survival}
+## \textcolor{white}{Optimization}
+
+- Batching not a problem for discrete-time models 
+- Nnet-survival uses mini-batch SGD
+  - Fast convergence
+  - No running out of memory
+  - Scalability to large datasets (even out-of-core learning)
+
+# \textcolor{white}{Discrete-time Deep Survival Models: Summary}
+## \textcolor{white}{Model Capabilities, Limitations, and Extensions}
+
+- Can handle non-linear effects and interactions
+- Non-proportional hazards modeling possible for Nnet-survival
+- Missing data $\rightarrow$ preprocessing
+- Truncation and other censoring types not addressed
+- Competing risks not addressed either
+  - Simple single-cause solution as for Cox-based models
+  - DeepHit [@lee2018deephit]: integrated into architecture
+- Additional research required for discrete-time survival analysis beyond right-censored data 
+
+# \textcolor{white}{Piecewise Exponential Deep Survival Models: PEM}
+## \textcolor{white}{The Piecewise Exponential Model (PEM) Framework}
+
+- Continuous-time framework modeling the hazard rate by @friedman1982piecewise
+- Models feature effects \textit{and} baseline hazard function
+- Requires partitioning of follow-up into $J$ intervals, then assumes piecewise constant hazard rates on intervals
+  - $h(t|\mathbf{x}_i) =: h_{ij}$, for all $t$ in interval $j$
+- Requires a Poisson loss function
+- Given these requirements: \textit{any} statistical/ML/DL method applicable to survival tasks
+  - e.g. PEANN [@fornili2013piecewise]
+- Great amount of flexibility (see @bender2020general):
+  - TVFs and TVEs
+  - Other types of censoring and truncation
+  - Competing risks and even multiple states
+
+# \textcolor{white}{Deep And Wide Survival Models: Motivation}
+
+Consequences of big data:
+
+- \textit{Deep} learning: many parameters to be learned
+- \textit{Wide} data: (unstructured) data of different modalities
+- E.g. medical context: tabular clinical data, multiple CT scans, and a written doctor's report for each patient
+- All previous models "restricted themselves" to tabular input data
+- NNs capable of learning from such multimodal data $\rightarrow$ \textit{deep} and \textit{wide} NNs
+- Types of deep and wide survival models:
+  - Cox-based
+  - Discrete-time
+  - **Piecewise exponential**
+
+# \textcolor{white}{Deep And Wide Survival Models: DeepPAM}
+
+- Piecewise exponential model by @kopper2020semi combining PAM and SDDR
+- Piecewise Exponential Additive Model (PAM)
+  - Models logarithm of $h_{ij}$ as additive model
+  - Learns from tabular data (structured predictor)
+- Semi-structured Deep Distributional Regression (SDDR)
+  - Embeds structured predictor in a NN
+  - Further learns from other (unstructured) data types
+- Joint effect learned in network head through further (fully-connected) layers
+- Penalized Poisson negative log-likelihood as loss function
+- Optimization using Adam
+
+# \textcolor{white}{Deep And Wide Survival Models: Summary}
+
+- Deep and wide survival models in general
+  - can model multimodal data, non-linear effects, and feature interactions
+  - need missing values to be addressed during preprocessing
+
+- Cox-based and piecewise exponential deep and wide survival models preserve interpretability of tabular features
+
+- DeepPAM
+  - can model TVEs
+  - inherits PEM flexibilities
+  
+- Other deep and wide survival models
+  - are not necessarily able to model TVEs (e.g. if maintaining a PH assumption)
+  - are usually less flexible: recall limitations of Cox-based and discrete-time models
+
+# \textcolor{white}{Deep Survival Analysis: The End}
+
+\vspace{1cm}
+\begin{center}
+{\Large \textbf{Thank you very much for your attention!}}
+\end{center}
+
+# \textcolor{white}{Appendix 1 - Piecewise Exponential Deep Survival Models}
+## \textcolor{white}{PEM Framework (I)}
+
+- Piecewise Exponential Models (PEMs) also model the hazard rate and also assume a continuous time scale
+- Key difference: Cox models focus solely on modeling the effects of features on individual hazard rates, leaving the baseline hazard "untouched"; PEMs model both feature effects \textit{and} the baseline hazard function
+- Once the follow-up period has been partitioned into $J$ intervals $(\kappa_0, \kappa_1], \dots, (\kappa_{j-1}, \kappa_j], \dots, (\kappa_{J-1}, \kappa_J]$, PEMs assume that hazard rates are piecewise constant on intervals $(\kappa_{j-1}, \kappa_j]$
+- I.e., for individual $i$ with corresponding features $\mathbf{x}_i$ and event time $t_i$, we have $h(t|\mathbf{x}_i) =: h_{ij}$, $\forall t \in  (\kappa_{j-1}, \kappa_j]$ [@bender2020general]
+- This way, the baseline hazard function is being approximated by a step function
+
+# \textcolor{white}{Appendix 1 - Piecewise Exponential Deep Survival Models}
+## \textcolor{white}{PEM Framework (II)}
+
+- Given this partition of the time scale, the event indicator is now $\delta_{ij} := \mathbbm{1} \{t_i \in (\kappa_{j-1}, \kappa_j] \land \delta_i = 1 \}$, indicating whether failure occurred for individual $i$ in the $j$-th time interval
+- $t_{ij}$ denotes the time span during which individual $i$ was observed within time interval $j$
+  - Equal to the entire interval length, $\kappa_{j} - \kappa_{j-1}$, in case of survival
+  - Equal to $t_i - \kappa_{j-1}$ in case of an event
+- $J_i$ denotes the last observed time interval of individual $i$, so that $t_i \in (\kappa_{J_i-1}, \kappa_{J_i}]$
+
+# \textcolor{white}{Appendix 1 - Piecewise Exponential Deep Survival Models}
+## \textcolor{white}{PEM Framework (III)}
+
+- Log-likelihood contribution of individual $i$:
+\begin{align*}
+l_i &=
+\text{log}(h(t_i, \mathbf{x}_i)^{\delta_i}S(t_i, \mathbf{x}_i)) =
+\sum_{j=1}^{J_i}(\delta_{ij} \text{log}(h_{ij}) - h_{ij}t_{ij}).
+\end{align*}
+- Assuming an $\delta_{ij} \overset{iid} \sim Po(\mu_{ij} = h_{ij} t_{ij})$, the above $l_i$ are proportional to the Poisson log-likelihood
+\begin{align*}
+l_i &=
+\text{log}
+\left(
+\prod_{j=1}^{J_i}f(\delta_ij)
+\right)
+= \sum_{j=1}^{J_i}(\delta_{ij} \text{log}(h_{ij}) + \delta_{ij} \text{log}(t_{ij}) + h_{ij}t_{ij}),
+\end{align*}
+- Once the data has been transformed into a PEM format, \textit{any} statistical/ML/DL method capable of maximizing a Poisson log-likelihood can now be applied to survival tasks
+
+# \textcolor{white}{Appendix 1 - Piecewise Exponential Deep Survival Models}
+## \textcolor{white}{PEANN - Hypothesis Space}
+
+- The Piecewise Exponential Artificial Neural Network (PEANN) [@fornili2013piecewise] models the hazard rate through a (shallow) neural network within the PEM framework
+- Parameterization of hazard rate $h_{ij}$ by a feed-forward NN with a single hidden layer with logistic activation and Poisson output activation
+- $\mathcal{H}$ of hazard function of PEANN as for DeepSurv with:
+  - $l=1$
+  - $\sigma^{(1)} = \sigma(\cdot)$
+  - $\tau = \text{exp}(\cdot)$
+
+# \textcolor{white}{Appendix 1 - Piecewise Exponential Deep Survival Models}
+## \textcolor{white}{PEANN - Loss Function And Optimization}
+
+- Loss function: negative log-likelihood, augmented by a quadratic penalty term:
+\begin{align*}
+\text{loss} &= - \frac{1}{n} \sum_{i=1}^n \sum_{j=1}^{J_i}
+\left(
+\delta_{ij} \text{log}(h_{ij}) - h_{ij}t_{ij}
+\right) + penalty
+\end{align*}
+  - $J_i$: time interval where individual $i$ was last observed
+  - $\delta_{ij}$: event indicator for individual $i$ and time interval $j$-th (jointly)
+  - $t_{ij}$: amount of time individual $i$ was observed within time interval $j$
+- BFGS algorithm for optimization (quasi-Newton method)
+
+# \textcolor{white}{Appendix 1 - Piecewise Exponential Deep Survival Models}
+## \textcolor{white}{PEANN - Summary}
+
+- PEANN "inherits" PEM flexibilities
+- Naturally handles non-linear feature effects and interactions by being NN-based
+- Needs missing values to be addressed during preprocessing
+
+# \textcolor{white}{Appendix 2 - Deep And Wide Survival Models}
+## \textcolor{white}{WideAndDeep}
+
+- Cox-based model by @polsterl2019wide
+- Data setting: learning from patient-level clinical data and image data to predict Alzheimer Disease (AD) onset probabilities
+- Deep part: learning features about images
+- Wide part: linear model for tabular data
+- Fusion of both parts: linear aggregation of learned weights
+- Cox-based loss as in DeepSurv
+- Adam optimization
+
+# \textcolor{white}{Appendix 2 - Deep And Wide Survival Models}
+## \textcolor{white}{MultiSurv}
+
+- Discrete-time model by @vale2020multisurv
+- Flexibility in terms of NN architectures choice
+- Feature representation for each data modality $\rightarrow$ fusion $\rightarrow$ prediction (sigmoid activation)
+- Uses the Nnet-survival loss function
+- Loss function minimized using SGD
+
+# References {.allowframebreaks}
