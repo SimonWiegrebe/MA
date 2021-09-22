@@ -76,73 +76,53 @@ knitr::opts_chunk$set(echo = TRUE)
   - evaluation metrics
   - tuning
 
-# 5 Results
+# 5 App-level Results
 
-## App-level Results
-### Overall Performance (I)
+## Overall Performance
 
-
-\vspace{-0.5cm}
 ![\tiny Figure XXX: $HR@k$ performance for $k=1, 5, 10, \text{ and } 20$ on five-window app-level data.](../figures/HitRate_app-level_multiple.png){width=100% height=75%}
 
-## App-level Results
-### Overall Performance (II)
+- Best performer i.t.o. $HR@1$ and $HR@5$: \textit{CT}
+- Best performer i.t.o. $HR@10$ and $HR@20$: \textit{VSTAN\_EBR}
+- Strong $HR@1$ performance of NN-based models
 
-- \textit{CT} has the best $HR@k, \forall k \in \{1,5\}$, and the best $MRR@k, \forall k \in \{1,5,10,20\}$.
-- \textit{VSTAN\_EBR} performs best in terms of $HR@20$, i.e., when the Hit Rate is evaluated on the list of the top 20 recommendations per event.
-- The three NN-based models \textit{GRU4Rec}, \textit{GRU4Rec\_R}, and \textit{HGRU4Rec} come right behind \textit{CT} i.t.o. $HR@1$, yet their relative performance deteriorates as $k$ increases.
-- They also have the highest app coverage and the lowest popularity bias.
-- Session-aware (heuristic) extensions increase performance of session-based algorithms.
-
-## App-level Results
-### Minimum Sequence Length (I)
+## Minimum Sequence Length (I)
 
 - Background: 
-  - \textit{GRU4Rec}, \textit{GRU4Rec\_R}, and \textit{HGRU4Rec} employ RNNs.
-  - These learn from the present sequence whereas non-neural methods mostly "look up" similar sequences or app combinations.
-  - App-level sequences are typically short $\rightarrow$ RNN-based methods do not have "much to learn from".
+  - \textit{GRU4Rec}, \textit{GRU4Rec\_R}, and \textit{HGRU4Rec} employ RNNs
+  - These learn from the present sequence whereas non-neural methods mostly "look up" similar sequences or app combinations
+  - App-level sequences are typically short $\rightarrow$ RNN-based methods do not have "much to learn from"
+
 - Hypotheses:
-  - We expect \textit{GRU4Rec}, \textit{Gru4Rec\_R}, and \textit{HGRU4Rec} to perform better on longer sequences, where the underlying RNNs are provided more events to learn from.
-  - We expect sequence length to have no impact on performance of \textit{AR}, \textit{SR}, and \textit{SR\_BR}, since they only use the last event of a sequence for prediction.
-- To test this, we train and evaluate our models on a subset containing only sequences with at least 20 events.
+  - Better performance of NN-based models on longer sequences
+  - No impact of sequence length on performance of \textit{AR}, \textit{SR}, and \textit{SR\_BR}
 
-## App-level Results
-### Minimum Sequence Length (II)
+$\rightarrow$ Train and evaluate our models on a subset containing only sequences with at least 20 events.
 
-\vspace{-0.5cm}
+## Minimum Sequence Length (II)
+
 ![\tiny Figure XXX: $HR@k$ comparison between performance on full five-window app-level data (left bars) and performance on five-window app-level data when only training and evaluating on sequences with a minimum length of 20 (right bars), for $k \in \{1,5,10,20\}$.}](../figures/HitRate_app-level_multiple_min20.png){width=100% height=75%}
 
-## App-level Results
-### Minimum Sequence Length (III)
+- \textit{CT} still best performer for $HR@1$ and $HR@5$
+- No large changes for \textit{AR}, \textit{SR}, and \textit{SR\_BR}
+- Performance of NN-based models improves
 
-- \textit{CT} still has the best $HR@k, \forall k \in \{1,5\}$, and the best $MRR@k, \forall k \in \{1,5,10,20\}$.
-- No large changes for \textit{AR}, \textit{SR}, and \textit{SR\_BR}.
-- Performance of NN-based models improves $\rightarrow$ RNN-based models benefit from being trained and evaluated on longer sequences.
+## Minimum Sequence Length (III)
+
 - What if instead we train on all sequences and only evaluate on long sequences?
-  - \textit{CT} is again the best performer, but absolute performance is considerably worse.
-  - All neural models perform considerably worse than above.
-  - This is somehow surprising: the full training dataset is considerably larger than the long-sequences-only dataset.
-- We conclude that performance on long sequences benefits from training on long sequences only.
+  - \textit{CT} still best performer
+  - All neural models perform considerably worse
+  - Surprising because the full training dataset is considerably larger
+- Conclusion: performance on long sequences benefits from training on long sequences only
 
-## App-level Results
-### Position in Test Sequence (I)
+## Position in Test Sequence (I)
 
-\vspace{-0.5cm}
 ![\tiny Figure XXX: $HR@1$ performance across the first ten prediction positions on five-window app-level data.](../figures/HitRate@1_app-level_multiple_by_position.png){width=100% height=75%}
 
-## App-level Results
-### Position in Test Sequence (II)
+- Initial performance boost for \textit{VSTAN\_EBR}
+- No clear trend for all other models
 
-- \textit{VSTAN\_EBR} performs well on early positions but performance deteriorates for longer test sequences.
-- For the remaining neighborhood-based models, the behavior is reversed: very weak performance on the first positions but an increase in performance with increasing position.
-- \textit{CT} and the three NN-based models do not show any clear trend across positions.
-- Shortcomings of this visual analysis:
-  - Hard to identify a pattern when the actual question is whether an algorithm performs better on "early" or "late" positions
-  - Positions $>10$ are not considered at all
-- Introduce a cutoff after the 2nd, 5th, or 10th event to be predicted, then compare pre- and post-cutoff performance
-
-## App-level Results
-### Position in Test Sequence (III)
+## Position in Test Sequence (II)
 
 \begin{table}
 \centering
@@ -150,19 +130,17 @@ knitr::opts_chunk$set(echo = TRUE)
 \caption{\tiny Table XXX: $HR@1$ performance results on five-window app-level data, by positional cutoff within test sequence.}
 \end{table}
 
-- Performance for all NN-based models actually worsens for later positions in the test sequences
-- They appear to struggle with later positions in the prediction sequences and, consequently, with long prediction sequences - if training is not tailored towards them.
+- Worse performance for NN-based models on later positions
+- if training is not tailored towards them: NN-based models struggle with later positions in the prediction sequences and, consequently, with long prediction sequences
 
-## App-level Results
-### Removing ON and OFF Events (I)
+## Removing ON and OFF Events (I)
 
-- Short sequence length is a key issue and potential performance bottleneck for app-level analysis.
-- By construction, the first and last event of each sequence are ON and OFF events, respectively, and hardly informative
-- ON-OFF sequences make up $38.91\%$ of all app-level sequences.
-- To increase information density across and within sequences as well as average sequence length, here we analyze the effect of dropping all ON and OFF events from the app-level data.
+- Key issue and potential performance bottleneck: short sequence length
+- ON and OFF events are hardly informative
+- ON-OFF sequences make up $38.91\%$ of all app-level sequences
+- Effect of dropping all ON and OFF events from the app-level data?
 
-## App-level Results
-### Removing ON and OFF Events (II)
+## Removing ON and OFF Events (II)
 
 \vspace{-0.5cm}
 ![\tiny Figure XXX: $HR@k$ performance comparison between full five-window app-level data (left bars) and five-window app-level data after dropping all ON and OFF events (right bars), for $k \in \{1,5,10,20\}$.}](../figures/HitRate_app-level_multiple_droponoff.png){width=100% height=75%}
@@ -179,21 +157,18 @@ knitr::opts_chunk$set(echo = TRUE)
   - In our case, dropping ON and OFF events leads to the exclusion of 49.92\% of all app-level sequences.
   - This conditional analysis is hardly representative of overall user behavior anymore.
 
-## App-level Results
-### Category-level Prediction (I)
+## Category-level Prediction (I)
 
 - Ultimate goal: predict human behavioral sequences $\rightarrow$ consider next-category prediction instead of next-app prediction.
 - For evaluation, we thus simply consider the app category: for instance, "messaging" instead of "WhatsApp".
 - If performance improves considerably: our models actually learn more about behavioral sequences than previously thought.
 
-## App-level Results
-### Category-level Prediction (II)
+## Category-level Prediction (II)
 
 \vspace{-0.5cm}
 ![\tiny Figure XXX: $HR@k$ performance increases on five-window app-level data when only considering app categories for evaluation (left bars), instead of considering the individual apps as well (right bars), for $k \in \{1,5,10,20\}$.](../figures/HitRate_app-level_multiple_categories.png){width=100% height=75%}
 
-## App-level Results
-### Category-level Prediction (III)
+## Category-level Prediction (III)
 
 - Performance increases for non-neural methods: small for $k=1$, noticeable for larger $k$.
 - Performance increases for neural methods: more pronounced, especially for larger $k$.
@@ -201,49 +176,42 @@ knitr::opts_chunk$set(echo = TRUE)
 - Conclusions:
   - Next-app prediction performance is largely indicative of how much the algorithms truly learn in terms of behavioral sequence modeling.
 
-## App-level Results
-### Embedding Analysis (I)
+## Embedding Analysis (I)
 
 - Can deep learning models learn smartphone app semantics?
 - Do apps from a common app category form clusters in the embedding space?
 - We add an embedding layer ($d=128$) to the otherwise fully tuned \textit{GRU4Rec} model and extract it after training.
 - Then, we apply the t-distributed stochastic neighbor embedding (TSNE) dimensionality reduction technique [@hinton2002stochastic] to obtain two-dimensional app embeddings.
 
-## App-level Results
-### Embedding Analysis (II)
+## Embedding Analysis (II)
 
 \vspace{-0.5cm}
 ![\tiny Figure XXX: App category-based clustering of app-level embeddings. Blue dots represent apps categorized as \textit{Messaging}, red dots represent apps categorized as \textit{Social Networks}. For illustration, app embeddings are reduced to a dimensionality of two.](../figures/embeddings_clusters.png){width=75% height=75%}
 
-## App-level Results
-### Embedding Analysis (III)
+## Embedding Analysis (III)
 
 - No apparent category-level clustering is recognizable.
 - In numbers: only for $11.67\%$ of apps their most similar app (i.t.o. cosine similarity) is from the same category.
 - App embeddings learned by the \textit{GRU4Rec} model are not very successful at learning true app-level semantics.
 
-## App-level Results
-### Embedding Analysis (IV)
+## Embedding Analysis (IV)
 
 - Alternatively, we might want to start off with a data-driven clustering approach, based on positioning within the embedding space.
 - We use k-means clustering on the untransformed 128-dimensional app embeddings ($k=15$).
 - Then we look at potential accumulations of app categories within each one of the 15 clusters.
 
-## App-level Results
-### Embedding Analysis (V)
+## Embedding Analysis (V)
 
 \vspace{-0.5cm}
 ![\tiny Figure XXX: k-means clustering of app-level embeddings ($k=15$). For illustration, app embeddings are reduced to a dimensionality of two.](../figures/embeddings_clusters_kmeans.png){width=75% height=75%}
 
-## App-level Results
-### Embedding Analysis (VI)
+## Embedding Analysis (VI)
 
 - Moccasin-colored cluster (center top): high prevalence of apps from only few but related categories:
   - 32 out of a total 52 apps (i.e., more than 60\%) are either camera or image editing apps.
 - However, the vast majority of clusters are very much dispersed across the app space, with few to no intra-cluster app category clustering.
 
-## App-level Results
-### Embedding Analysis (VII)
+## Embedding Analysis (VII)
 
 - Finally, we briefly consider app analogies.
 - We experimentally construct app analogies such as "Messaging 1 + Social Network 1 - Social Networks 2 = ???".
@@ -254,14 +222,14 @@ knitr::opts_chunk$set(echo = TRUE)
   - Next-app prediction is possible and informative given our app-level data $\rightarrow$ the algorithms do learn behavioral patterns based on app usage data.
   - This learning is not profound enough as for app semantics to be recognizable.
 
-## Sequence-level Results
-### Overall Performance (I)
+# 6 Sequence-level Results
+
+## Overall Performance (I)
 
 \vspace{-0.5cm}
 ![\tiny Figure XXX: $HR@k$ performance for $k=1, 5, 10, \text{ and } 20$ on five-window sequence-level data.](../figures/HitRate_sequence-level_multiple.png){width=100% height=75%}
 
-## Sequence-level Results
-### Overall Performance (II)
+## Overall Performance (II)
 
 - All algorithms show a strong performance in terms of $HR@1$, at around $50\%$.
 - Performance increases with increasing $k$ are much lower than in the app-level setting $\rightarrow$ $HR@20$ performance worse than in the app-level case for 7 algorithms.
@@ -271,21 +239,18 @@ knitr::opts_chunk$set(echo = TRUE)
 - \textit{CT} covers $95\%$ of all tokens, while \textit{GRU4Rec} only covers $8\%$.
 - Popularity bias is rather low (between $5\%$ and $8\%$) for all models.
 
-## Sequence-level Results
-### Removing ON-OFF Tokens (I)
+## Removing ON-OFF Tokens (I)
 
 - The high $HR@1$ performance across all algorithms is suspicious.
 - It might simply be the consequence of the high prevalence of ON-OFF tokens ($51.06\%$).
 - Removing all ON and OFF events from the underlying app-level data translates into removing all ON-OFF tokens from the sequence-level data.
 
-## Sequence-level Results
-### Removing ON-OFF Tokens (II)
+## Removing ON-OFF Tokens (II)
 
 \vspace{-0.5cm}
 ![\tiny Figure XXX: $HR@k$ performance comparison for all selected algorithms between full five-window sequence-level data (left bars) and five-window sequence-level data after dropping all ON and OFF events (right bars), for $k \in \{1,5,10,20\}$.](../figures/HitRate_sequence-level_multiple_droponoff.png){width=100% height=75%}
 
-## Sequence-level Results
-### Removing ON-OFF Tokens (III)
+## Removing ON-OFF Tokens (III)
 
 - Performance drops for all algorithms after excluding ON-OFF tokens, especially i.t.o. $HR@1$.
 - Average performance drop (across all algorithms): $63.88\%$.
@@ -293,22 +258,19 @@ knitr::opts_chunk$set(echo = TRUE)
 - On the unrestricted data, 10 out of 11 algorithms predict an ON-OFF token as top ranked recommendation in more than $95\%$ of all cases.
   - As a consequence, $HR@1$ on non-ON-OFF events is close to 0 for all algorithms.
 
-## Sequence-level Results
-### Position in Test Sequence (I)
+## Position in Test Sequence (I)
 
 \vspace{-0.5cm}
 ![\tiny Figure XXX: $HR@1$ performance across the first ten prediction positions on five-window sequence-level data for all selected algorithms.](../figures/HitRate@1_sequence-level_multiple_by_position.png){width=100% height=75%}
 
-## Sequence-level Results
-### Position in Test Sequence (II)
+## Position in Test Sequence (II)
 
 - We use sequence-level data with all ON and OFF events removed from the underlying app-level data.
 - We do not see a clear trend for any of the models as the position of the event within the test sequence increases.
 - Performance for the first position is relatively weak for all algorithms.
 - Again, we introduce a cutoff after the 2nd, 5th, or 10th event to be predicted and compare pre- and post-cutoff performance
 
-## Sequence-level Results
-### Position in Test Sequence (III)
+## Position in Test Sequence (III)
 
 \begin{table}
 \centering
@@ -319,8 +281,7 @@ knitr::opts_chunk$set(echo = TRUE)
 - All models except \textit{SKNN} perform better on later positions of the test sequences
 - The precise positioning of the cutoff is not decisive.
 
-## Sequence-level Results
-### Position in Test Sequence (IV)
+## Position in Test Sequence (IV)
 
 - For NN-based models, this performance improvement for later events is in line with what we expected.
 - Difference in performance across positions for app- versus sequence-level data:
