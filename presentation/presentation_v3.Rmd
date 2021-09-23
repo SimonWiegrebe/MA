@@ -1,9 +1,17 @@
 ---
-title: "What next? Modeling human behavior using smartphone usage data and (deep) recommender systems"
-subtitle: \textcolor{black}{Master Thesis Presentation}
+title: |
+  | \textit{What next? Modeling human behavior using smartphone usage data and (deep) recommender systems}
+  | \vspace{0.3cm}
+subtitle: |
+  | \textcolor{black}{Master Thesis Presentation}
 author: |
   | Simon Wiegrebe
-date: "October 01, 2021"
+  | \vspace{-0.5cm}
+date: |
+  | \vspace{-0.5cm}
+  | \normalsize \textit{Supervisor: Dr. David Rügamer}
+  | ![](logo.pdf){width=2.5cm} 
+  | October 01, 2021
 output:
   beamer_presentation:
     # includes:
@@ -16,6 +24,7 @@ output:
 bibliography: bibliography.bib
 biblio-style: myabbrvnat
 header-includes:
+  - \widowpenalties 1 150
   - \usepackage{caption}
   - \usepackage{float}
   - \captionsetup{labelformat=empty}
@@ -30,7 +39,6 @@ header-includes:
   #   \includegraphics[width=2in,height=2in]{logo.pdf}\LARGE\\}
   # - \posttitle{\end{center}}
 ---
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -66,33 +74,168 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Description
 
-We use the PhoneStudy dataset from a mobile sensing research project at the Ludwig-Maximilians-University Munich (\citealp{phonedata}). The dataset is composed of three individual studies, yet we only use data from the first one since it accounts for almost 95\% of all observations. As part of the study, 310 participants (users) were recruited, consenting to providing log, sensor, and app-usage data during the study period from October 29, 2017 through January 22, 2018.
+- PhoneStudy dataset from a mobile sensing research project [@phonedata]
+- 310 users, study period from October 29, 2017 through January 22, 2018
+- Each app usage assigned exact opening date and time
 
-For each user, we have up to 86 days of smartphone usage data, each app usage being assigned the exact opening date and time. In a first preprocessing step, we define smartphone usage sessions as a time-ordered sequence of events starting with an ON event (whereby the screen is switched on) and ending with an OFF event (whereby the screen is switched off). All events within a single session are assigned the same unique session ID. By definition, each session has minimum length two; sessions with a length of exactly two are ON-OFF sessions, where a user turns on the screen (for example to check the time) and turns it off immediately after.
+![\tiny Table XXX: Excerpt of anonymized app-level data.](../tables/sample_excerpt.png){width=80% height=60%}
 
-As a final general preprocessing step, we map app names to numeric app IDs and convert the date and time variable to a Unix timestamp, resulting in the dataframe as shown in Table \ref{Tab:dataframe}. There is a total of 844,296 sessions, with 1392 and 1389 being the IDs corresponding to an ON and OFF event, respectively.
+## App-level Representation
 
+- In language modeling:
+  - Tokens $\widehat{=}$ words
+  - Sentence $\widehat{=}$ concatenation of tokens ending with a period
+  
+- Here:
+  - Tokens $\widehat{=}$ apps
+  - Sentences $\widehat{=}$ sessions
 
+- Objective: next-app prediction
+  - Predicting the next app a user is going to use in a given session
 
-- description (+ table)
-- representation  and preprocessing: app-level 
-- representation  and preprocessing: sequence-level
-- representation  and preprocessing: app-to-text conversion
+- Mostly very short sessions
 
-# 3 Methodology
+## Sequence-level Representation
 
-- modeling
-  - session-based baseline models
-  - session-based neural models
-  - session-aware neural models
-  - extensions
-- evaluation
-  - train-validation-test split
-  - evaluation protocol
-  - evaluation metrics
-  - tuning
+- How to address the issue of short session length?
+- Focus on behavior, not individual apps
+  - App-level sessions $:=$ concatenations of app-level \textit{categories}
+  - These categories were pre-established by @stachl2020predicting
+    - E.g.: "WhatsApp" $\rightarrow$ "Messaging"
+    
+- Now:
+  - Tokens $\widehat{=}$ app-level sessions
+  - Sentences $\widehat{=}$ daily concatenations of a user’s sessions
+  
+- For the sake of unambiguousness: use the terms "sequence" and "event"
 
-# 4 App-level Results
+## Summary Statistics
+
+![\tiny Table XXX: Summary statistics of app-level and sequence-level data.](../tables/summary_statistics.png){width=100% height=75%}
+
+- Drawback of sequence-level analysis: data size
+  - events in sequence-level $\approx$ sequences in app-level
+
+# 3 Modeling
+
+## Definitions and Terminology
+
+- Baseline model $:=$ non-NN-based model
+- Session-based model: no incorporation of user-level information (user ID)
+- Session-aware model: incorporation of user-level information
+- $s=(s_1, s_2, \dots, s_m)$: sequence of chronologically ordered events
+  - $s_s$: last "known" event in the sequence
+  - $s_{s+1}$: event we seek to predict
+- $i$: candidate event for $s_{s+1}$
+
+## Session-based Baseline Models (I)
+
+- \textit{AR} and \textit{SR} [@ludewig2018evaluation]
+  - are based on co-occurrence frequencies
+  - only take into account $s_s$ when making a prediction
+  
+- \textit{AR}
+  - simply counts co-occurrences of $s_s$ with \textit{any} $i$
+  - normalizes this count by the number of all co-occurrences
+  
+- \textit{SR}
+  - accounts for sequential event order
+  - only counts co-occurrences where $s_s$ precedes any $i$
+  - decreases the weight if other events occurred in-between
+  
+## Session-based Baseline Models (II)
+
+- The neighborhood-based \textit{SKNN} [@jannach2017recurrent]
+  - defines a neighborhood of most similar past sequences
+  - determines similarity between $s$ and neighbor sequences
+  - computes score as sum of similarity scores across all sequences which contain $i$
+  
+- \textit{STAN} [@garg2019sequence] and \textit{VSTAN} [@ludewig2021empirical] extend \textit{SKNN}, for instance by
+  - accounting for event recency in $s$ using decay functions
+  - accounting for sequence recency of neighbor sequences
+  
+## Session-based Neural Models
+
+- \textit{GRU4Rec} [@hidasi2015session]
+  - initially one-hot encodes single input events
+  - feeds input vectors into a Gated Recurrent Unit (GRU) layer
+  - uses pairwise ranking losses for training
+  - outputs, for each event, the likelihood of being next in the sequence
+
+## Session-aware Neural Models
+
+- \textit{HGRU4Rec} [@quadrana2017personalizing]
+  - is a user-aware extension of \textit{GRU4Rec}
+  - contains a short- and long-term memory GRU layer
+  - generates recommendations for each event in a sequence through a session-level GRU (like \textit{GRU4Rec})
+  - updates an additional user-level GRU at the end of each sequence
+  - employs its hidden state for initialization of the session-level GRU at the beginning of the next sequence
+
+## Extensions
+
+- We use (a combination of) 3 different heuristics for some session-based algorithms
+- Extensions contribute user-level information from past sequences $\rightarrow$ session-awareness
+1) \textit{Extend} prepends events from the user’s preceding sequence if $s$ is short
+2) \textit{Boost} increases the score of $i$ if $i$ has occurred in the user's past sequences
+3) \textit{Remind} adds a reminder score to the original model score
+
+## Implementation
+
+- Implementation of models and extensions based on @latifi2021session^[https://github.com/rn5l/session-rec/]
+- We perform all modeling, evaluation, and analysis tasks in Python
+
+# 4 Evaluation
+
+## Train-Validation-Test Split
+
+- Time-ordered and user-clustered data
+- Standard time-agnostic cross-validation not applicable
+- Last-event split method, applied twice:
+  1) Clip off each user's last sequence $\rightarrow$ test set
+  2) Clip off each user's last sequence from the remaining data $\rightarrow$ validation set
+
+- Each user required to have $\ge 3$ sequences
+- Additionally: split study period into 5 equally long sub-periods (windows)
+  - Apply train-validation-test split to all 5 windows
+  - Average performance results across all 5 test sets
+
+## Evaluation Protocol
+
+- Evaluate predictions for all but the first test sequence events
+- Preferable to \textit{last-item prediction}
+- How to define ground truth:
+  - Mostly interested in predicting the single next action of a user
+  - Our definition: only the event observed at specific position
+
+## Evaluation Metrics (I)
+
+- Target variable follows a multinomial distribution with large number of categories
+- We wish to quantify the goodness of our recommendation list of length k
+- We wish to perform next-event prediction with our ground truth being a single event
+- Let $n$ be the total number of events to be predicted
+
+## Evaluation Metrics (II)
+
+1) Hit Rate (HR): $HR@k$ is simply the fraction of events for which the corresponding recommendation list of length $k$, $rl(k)_i$, includes the ground truth, $y_i$:
+\begin{align*}
+  HR@k &= \frac{\sum_{i=1}^n \mathbbm{1}_{rl(k)_i}(y_i)}{n}
+\end{align*}
+
+2) Mean Reciprocal Rank (MRR): $MRR@k$ additionally accounts for the ranking within the recommendation list. $MRR@k$ computes the reciprocal rank of the ground truth within the recommendation list, $rr_i$, then averages this reciprocal rank across all $n$ events:
+\begin{align*}
+  MRR@k = \frac{\sum_{i=1}^n rr_i}{n}
+\end{align*}
+
+- We consider $HR@k$ and $MRR@k$ for $k \in \{1,5,10,20\}$
+
+## Tuning
+
+- Simple random search with budget 100 for each algorithm
+- Hyperparameter search spaces as in @latifi2021session
+- Tuning on five-window data, then averaging performance to determine optimal hyperparameter configuration
+- Tuning metric: $HR@1$
+
+# 5 App-level Results
 
 ## Overall Performance
 
@@ -212,7 +355,7 @@ $\rightarrow$ Add an embedding layer ($d=128$) to \textit{GRU4Rec}
   - App analogies conceptually much less intuitive than word embeddings
   - Low overall quality of \textit{GRU4Rec} embeddings
 
-# 5 Sequence-level Results
+# 6 Sequence-level Results
 
 ## Overall Performance
 
@@ -263,7 +406,7 @@ $\rightarrow$ Add an embedding layer ($d=128$) to \textit{GRU4Rec}
   - Sequence-level setting: mostly long sequences
 - Corroborates our previous conclusion: differences in sequence lengths between training and evaluation data negatively affect the performance of NN-based algorithms.
 
-# 6 Discussion
+# 7 Discussion
 
 ## Conclusion (I)
 
@@ -300,6 +443,6 @@ $\rightarrow$ Add an embedding layer ($d=128$) to \textit{GRU4Rec}
 - Information extraction: incorporation of duration, exact daytime, and geolocation of app usage
 - Transfer learning: use of pre-trained transformers?
 
+# 8 References
 
-# 8 References {.allowframebreaks}
-## 
+## References {.allowframebreaks}
