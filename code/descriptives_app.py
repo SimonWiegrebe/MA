@@ -20,16 +20,16 @@ import os
 data_sa = pd.read_csv('../../data/app-level/data_app_nodrop.csv')
 
 
-# In[6]:
+# In[3]:
 
 
-min_item_support = 5
-min_session_length = 2
-min_user_sessions = 3
-drop_first = True
+# min_item_support = 5
+# min_session_length = 2
+# min_user_sessions = 3
+# drop_first = True
 
 
-# In[7]:
+# In[4]:
 
 
 USER_KEY = 'userID'
@@ -69,7 +69,7 @@ SESSION_KEY = 'sessionID'
 # data_sa = preprocess(data_sa, min_item_support=5, min_session_length=2, min_user_sessions=3, drop_first=False)
 
 
-# In[8]:
+# In[5]:
 
 
 # statistics about time
@@ -79,13 +79,13 @@ end_last_session = datetime.datetime.fromtimestamp(data_sa.timestamp.max()).isof
 # print(end_last_session)
 
 
-# In[9]:
+# In[12]:
 
 
-data_sa.sessionID.nunique()
+# data_sa.groupby('sessionID').sessionID.count().value_counts()
 
 
-# In[10]:
+# In[7]:
 
 
 num_users = data_sa.userID.nunique()
@@ -101,7 +101,7 @@ q3_eps = np.quantile(session_lengths.values, 0.75)
 # unique apps per session: TBD
 
 
-# In[11]:
+# In[8]:
 
 
 print('number of events: ' + str(num_events))
@@ -113,17 +113,11 @@ print('median number of events per session: ' + str(round(median_eps, 2)))
 print('3rd quartile of events per session: ' + str(round(q3_eps, 2)))
 
 
-# In[15]:
+# In[9]:
 
 
 # which percentage of sessions (RHS) contain >= than i (LHS) apps?
 [(i+1, sum(session_lengths>i+1)/num_sessions) for i in range(1,20)]
-
-
-# In[17]:
-
-
-(328554+92904)/844296
 
 
 # In[60]:
@@ -167,35 +161,6 @@ print('1st quartile of events per session: ' + str(round(q1_eps, 2)))
 print('median number of events per session: ' + str(round(median_eps, 2)))
 print('3rd quartile of events per session: ' + str(round(q3_eps, 2)))
 
-
-# ### Issues
-
-# ##### single window versus multiple windows
-
-# * we have few users (310) but many sessions per user (~2724)
-# * only 310 test sessions in total, all of them at the end of January 2018
-# * if splitting the observation time span in, say, 5 equally long parts:
-#     * 5 train sets per user
-#     * 5 test sets per user (we can average performance across the 5 sets)
-
-# ##### very short sessions on average
-
-# * our data: average sequence length: 5.11
-# * BERT4Rec: dataset with shortest average sequence length: 8.8 (Amazon Beauty)
-# * HGRU4Rec: dataset with shortest average sequence length: 6.1 (Xing)
-# * comparison paper: dataset with shortest average sequence length: 5.62 (Xing)
-# * only 8% of all sessions contain at least 10 apps
-# * this gives rise to the so-called cold start problem for sequential prediction
-# * very questionable whether BERT4Rec will perform well because of the above (and the below)
-
-# ##### first and last app in each session are not really informative
-
-# * each session has a single OFF_ event at the end (either OFF_LOCKED or OFF_UNLOCKED) and no OFF_ event prior to that
-# * each session has an ON_ event at the beginning (either ON_LOCKED or ON_UNLOCKED)
-
-# * there are 162805 sessions starting with 2 (or more) consecutive ON_ events
-#     * most of them starting with ON_LOCKED followed by ON_UNLOCKED
-#     * 25 sessions starting with ON_UNLOCKED followed by ON_LOCKED (how does that make sense?)
 
 # In[ ]:
 
@@ -264,23 +229,6 @@ data_sa[i-1:i+5]
 #     * recall: we iteratively predict apps for the next spot in a session, yet we never actively predict whether there will be a next spot
 #     * on the other hand, we would not learn how to predict an OFF_ event
 #     * i.e., we would not learn which sequence is likely to indicate that a session has come to its end
-
-# ### To do
-
-# * Tuning:
-#     * all data or only a single window (i.e., a subset)?
-#     * 50 or 100 optimization iterations?
-# * BERT4Rec: how much time to invest into it?
-#     * run with our data
-#     * no ad hoc performance comparison possible (only last item evaluated)
-#     * extract "predictions"
-#     * evaluate predictions using the comparison framework
-
-# Alternative approaches to encode app sequences:
-# * word2vec
-# * glove
-# 
-# But these models only generate app embeddings and do not perform prediction.
 
 # ### unique sessions
 

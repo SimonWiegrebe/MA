@@ -19,13 +19,13 @@ import os
 path = '../../data/sequence-level/'
 
 
-# In[114]:
+# In[3]:
 
 
 data = pyreadr.read_r('../../data/sequences_all_anon.Rds')[None]
 
 
-# In[115]:
+# In[4]:
 
 
 data.rename(columns={'datum':'date', 'value':'category_name', 'anon_apps.name':'app_name'}, inplace=True)
@@ -35,7 +35,7 @@ data['category_name'].replace(['ON_LOCKED', 'ON_UNLOCKED'], 'ON', inplace=True)
 data['sessionID'] = data['category_name'].shift(1).isin(['OFF']).cumsum() + 1 # sessionID is like sequence_number but does NOT start anew for each user
 
 
-# In[116]:
+# In[5]:
 
 
 # cat_mapping = dict([(y,x+1) for x,y in enumerate(sorted(set(data['category_name'])))])
@@ -46,6 +46,12 @@ user_indexes = [user_mapping[x] for x in data['userId']]
 
 # data['category'] = cat_indexes
 data.insert(0, 'userID', user_indexes)
+
+
+# In[9]:
+
+
+data.groupby('sessionID').sessionID.count().value_counts()
 
 
 # In[117]:

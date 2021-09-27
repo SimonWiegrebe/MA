@@ -20,7 +20,7 @@ import os
 data = pd.read_csv('../../data/sequence-level/data_seq.csv')
 
 
-# In[7]:
+# In[3]:
 
 
 data_final = pd.read_csv('../../data/sequence-level/data_seq_final.csv')
@@ -31,6 +31,24 @@ data_final = pd.read_csv('../../data/sequence-level/data_seq_final.csv')
 
 # percentage of sequences of minimum length 20
 data_final.groupby('sentenceID').filter(lambda x: len(x) >= 20).sentenceID.nunique()/data_final.sentenceID.nunique()
+
+
+# In[4]:
+
+
+data.shape
+
+
+# In[13]:
+
+
+data
+
+
+# In[12]:
+
+
+sum(data_final.usID == 76202)
 
 
 # In[25]:
