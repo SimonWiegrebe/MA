@@ -1,0 +1,37 @@
+Intro & Data: 5 min
+Modeling: 5 min
+Evaluation & Tuning: 4 min
+App-level results: 10 min
+Seq-level results: 4 min
+Discussion: 4 min
+
+---
+ito motiv, s.u.d. has become a valuable data source to both commercial enterprises and behavioral researchers
+latter ones mostly uses this data to study human behavior through smartphone usage
+yet they mostly focus on the association between observed smartphone usage patterns and self-declared
+personality traits (e.g., through a Big 5 questionnaire)
+in this work, on the other hand, I chose a data-centric approach where I seek to model behavioral sequences
+by predicting actually observed behavior
+
+the idea of this research is to use sud collected as part of a PhoneStudy project and exploit its natural
+sequential order: i.e., app sessions
+...
+this way, we can model behavioral sequences by means of next-event prediction, that is, by predicting the
+next app a user is going to use
+and we can then compare our predictions with actually observed ground truth data
+
+how could e generate thus predictions? well, we have a large number ...
+
+---
+
+the data was collecteed in the course of a mobile sensing research project
+it comprises 310 participants (users) and approximately a 3-month study period
+for each user, we have the exact opening date and time of each app
+and we assign to each app a unique numeric app ID and to each session a unique numeric session ID
+so here we see that the first two sessions of the first user were ON-OFF session,
+just like the last session of the last user
+
+---
+
+
+
